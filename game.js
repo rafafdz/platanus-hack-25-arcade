@@ -25,8 +25,10 @@ let scoreText;
 let titleBlocks = [];
 let gameOver = false;
 let moveTimer = 0;
-let moveDelay = 150;
+let moveDelay = 80;
 let graphics;
+let bgMusic;
+let musicPlaying = false;
 
 // Pixel font patterns (5x5 grid for each letter)
 const letters = {
@@ -127,6 +129,7 @@ function create() {
   });
 
   playTone(this, 440, 0.1);
+  playBackgroundMusic(this);
 }
 
 function drawLetter(char, startX, startY, color, useBold = false) {
@@ -196,8 +199,8 @@ function moveSnake(scene) {
     spawnFood();
     playTone(scene, 880, 0.1);
 
-    if (moveDelay > 80) {
-      moveDelay -= 2;
+    if (moveDelay > 50) {
+      moveDelay -= 1;
     }
   } else {
     snake.pop();
@@ -333,7 +336,7 @@ function restartGame(scene) {
   nextDirection = { x: 1, y: 0 };
   score = 0;
   gameOver = false;
-  moveDelay = 150;
+  moveDelay = 80;
   scoreText.setText('Score: 0');
   spawnFood();
   scene.scene.restart();
@@ -355,4 +358,68 @@ function playTone(scene, frequency, duration) {
 
   oscillator.start(audioContext.currentTime);
   oscillator.stop(audioContext.currentTime + duration);
+}
+
+function playBackgroundMusic(scene) {
+  if (musicPlaying) return;
+  musicPlaying = true;
+
+  const audioContext = scene.sound.context;
+
+  // Catchy 8-bit style loop - plays every 4 seconds
+  const playMelody = () => {
+    if (gameOver) return;
+
+    // Main melody: E E E C E G (ascending pattern - iconic arcade style)
+    const notes = [
+      { freq: 329.63, dur: 200 }, // E
+      { freq: 329.63, dur: 200 }, // E
+      { freq: 329.63, dur: 200 }, // E
+      { freq: 261.63, dur: 200 }, // C
+      { freq: 329.63, dur: 200 }, // E
+      { freq: 392.00, dur: 200 }, // G
+      { freq: 392.00, dur: 400 }, // G (longer)
+    ];
+
+    let time = audioContext.currentTime;
+
+    notes.forEach(note => {
+      playNoteInContext(audioContext, note.freq, note.dur, time);
+      time += note.dur / 1000;
+    });
+
+    // Counter-melody (lower notes): C C A A F (syncopated)
+    const counterNotes = [
+      { freq: 130.81, dur: 150, delay: 300 },
+      { freq: 130.81, dur: 150, delay: 500 },
+      { freq: 220.00, dur: 150, delay: 700 },
+      { freq: 220.00, dur: 150, delay: 900 },
+      { freq: 174.61, dur: 300, delay: 1100 },
+    ];
+
+    counterNotes.forEach(note => {
+      playNoteInContext(audioContext, note.freq, note.dur, audioContext.currentTime + note.delay / 1000);
+    });
+
+    setTimeout(playMelody, 4000);
+  };
+
+  playMelody();
+}
+
+function playNoteInContext(audioContext, frequency, duration, startTime) {
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
+
+  oscillator.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+
+  oscillator.frequency.value = frequency;
+  oscillator.type = 'square';
+
+  gainNode.gain.setValueAtTime(0.08, startTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration / 1000);
+
+  oscillator.start(startTime);
+  oscillator.stop(startTime + duration / 1000);
 }
